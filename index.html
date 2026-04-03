@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Poker Range Analyzer — GTO Opening Ranges, Equity e Simulador de Board">
+<title>Poker Range Analyzer</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#080c14;--bg1:#0d1220;--bg2:#111827;--bg3:#161f30;--bg4:#1c2840;
+  --acc1:#4f8ef7;--acc2:#34d399;--acc3:#f59e0b;--acc4:#f472b6;--acc5:#a78bfa;
+  --red:#ef4444;--fold:#1e2a3a;
+  --t1:#f0f4ff;--t2:#8896b3;--t3:#4a5568;
+  --border:#1e2d45;--border2:#2a3d58;
+}
+html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg0);color:var(--t1)}
+.app{padding:16px;max-width:1200px;margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:36px;height:36px;background:var(--acc1);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;font-family:'JetBrains Mono',monospace;font-weight:700;color:#fff}
+.logo h1{font-size:18px;font-weight:600;color:var(--t1);letter-spacing:-0.3px}
+.logo p{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;letter-spacing:0.8px;text-transform:uppercase}
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select{background:var(--bg2);border:1px solid var(--border);color:var(--t1);padding:7px 28px 7px 11px;border-radius:8px;font-family:'Space Grotesk',sans-serif;font-size:13px;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5568' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;transition:border-color 0.2s}
+select:hover{border-color:var(--border2)}
+.pos-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px}
+.pos-tab{padding:6px 13px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--t3);font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:600;cursor:pointer;transition:all 0.15s;letter-spacing:0.5px}
+.pos-tab:hover{border-color:var(--border2);color:var(--t2)}
+.pos-tab.active{background:rgba(79,142,247,0.15);border-color:var(--acc1);color:var(--acc1)}
+.main-grid{display:grid;grid-template-columns:1fr 320px;gap:16px}
+@media(max-width:800px){.main-grid{grid-template-columns:1fr}}
+.panel{background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:14px}
+.panel-label{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--acc1);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:12px;font-weight:600}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+@media(max-width:500px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+.scard{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:10px;text-align:center}
+.scard-val{font-size:20px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--acc1)}
+.scard-lbl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:0.7px;margin-top:2px;font-family:'JetBrains Mono',monospace}
+.range-grid{display:grid;grid-template-columns:repeat(13,1fr);gap:2px}
+.hc{aspect-ratio:1;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:7px;font-family:'JetBrains Mono',monospace;font-weight:600;cursor:pointer;transition:transform 0.12s,box-shadow 0.12s;background:var(--fold);color:var(--t3);border:1px solid #1a2535;user-select:none;position:relative}
+.hc:hover{transform:scale(1.18);z-index:5;box-shadow:0 0 0 1px var(--acc1)}
+.hc.rfi{background:#0d2a4a;color:#4f8ef7;border-color:#1a3d6a}
+.hc.tbet{background:#1a0d3a;color:#a78bfa;border-color:#2d1a5a}
+.hc.call{background:#0d2a1a;color:#34d399;border-color:#1a4a2a}
+.hc.limp{background:#2a1a0d;color:#f59e0b;border-color:#4a2d1a}
+.hc.selected{box-shadow:0 0 0 2px #fff;transform:scale(1.15);z-index:6}
+.legend{display:flex;gap:12px;margin-top:10px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)}
+.leg-dot{width:8px;height:8px;border-radius:2px}
+.hand-detail{background:var(--bg1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.hd-header{padding:14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.hand-name{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--t1)}
+.hand-type{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.action-badge{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.5px}
+.ab-raise{background:rgba(79,142,247,0.2);color:var(--acc1);border:1px solid rgba(79,142,247,0.4)}
+.ab-call{background:rgba(52,211,153,0.2);color:var(--acc2);border:1px solid rgba(52,211,153,0.4)}
+.ab-fold{background:rgba(74,85,104,0.2);color:var(--t3);border:1px solid var(--border)}
+.ab-3bet{background:rgba(167,139,250,0.2);color:var(--acc5);border:1px solid rgba(167,139,250,0.4)}
+.hd-body{padding:14px}
+.eq-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
+.eq-card{background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)}
+.eq-lbl{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.7px}
+.eq-val{font-size:18px;font-weight:600;font-family:'JetBrains Mono',monospace;margin-top:2px}
+.eq-bar{height:4px;border-radius:2px;margin-top:6px;background:var(--border)}
+.eq-fill{height:100%;border-radius:2px;transition:width 0.4s ease}
+.scenario-tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}
+.sc-tab{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--t3);font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all 0.15s}
+.sc-tab:hover{color:var(--t2);border-color:var(--border2)}
+.sc-tab.active{background:rgba(79,142,247,0.15);border-color:var(--acc1);color:var(--acc1)}
+.scenario-panel{background:var(--bg2);border-radius:8px;padding:12px;border:1px solid var(--border)}
+.sc-action{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)}
+.sc-action:last-child{border-bottom:none;padding-bottom:0}
+.sc-action-name{font-size:12px;color:var(--t2);font-family:'JetBrains Mono',monospace;min-width:110px}
+.sc-freq{font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;min-width:36px;text-align:right}
+.freq-bar-wrap{flex:1;margin:0 10px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.freq-bar{height:100%;border-radius:2px;transition:width 0.4s ease}
+.board-section{margin-top:14px}
+.board-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.board-label{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:1px;min-width:36px}
+.card-btn{width:48px;height:68px;background:var(--bg3);border:1.5px dashed var(--border2);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;flex-shrink:0;position:relative}
+.card-btn:hover{border-color:var(--acc1);background:var(--bg4)}
+.card-btn.has-card{border-style:solid;border-color:var(--border2);background:var(--bg2)}
+.card-face{font-family:'JetBrains Mono',monospace;font-weight:700;text-align:center;line-height:1.2}
+.card-face.red{color:#ef4444}
+.card-face.black{color:var(--t1)}
+.card-rank{font-size:14px}
+.card-suit{font-size:12px}
+.card-plus{color:var(--border2);font-size:20px;font-weight:300}
+.board-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.btn-sm{padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--t2);font-size:12px;font-family:'Space Grotesk',sans-serif;cursor:pointer;transition:all 0.15s;font-weight:500}
+.btn-sm:hover{border-color:var(--border2);color:var(--t1)}
+.btn-sm.primary{background:rgba(79,142,247,0.15);border-color:var(--acc1);color:var(--acc1)}
+.btn-sm.danger{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#ef4444}
+.street-nav{display:flex;gap:4px;margin-bottom:12px}
+.street-btn{flex:1;padding:7px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--t3);font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all 0.15s;text-align:center;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.street-btn:hover{color:var(--t2);border-color:var(--border2)}
+.street-btn.active{background:rgba(79,142,247,0.15);border-color:var(--acc1);color:var(--acc1)}
+.street-btn.done{background:rgba(52,211,153,0.1);border-color:rgba(52,211,153,0.3);color:var(--acc2)}
+.board-analysis{background:var(--bg2);border-radius:8px;padding:12px;border:1px solid var(--border);margin-top:8px}
+.ba-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.ba-card{background:var(--bg3);border-radius:6px;padding:8px;text-align:center}
+.ba-val{font-size:15px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.ba-lbl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:0.7px;margin-top:2px;font-family:'JetBrains Mono',monospace}
+.ba-row{display:flex;align-items:center;gap:6px;padding:5px 0;border-top:1px solid var(--border)}
+.ba-name{font-size:11px;color:var(--t2);min-width:88px;font-family:'JetBrains Mono',monospace}
+.ba-pct{font-size:11px;font-family:'JetBrains Mono',monospace;min-width:40px;text-align:right}
+.ba-barwrap{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.ba-bar{height:100%;border-radius:2px;transition:width 0.4s ease}
+.placeholder{text-align:center;padding:30px;color:var(--t3);font-size:13px}
+.placeholder .icon{font-size:32px;display:block;margin-bottom:10px;opacity:0.3}
+.picker-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center}
+.picker-overlay.open{display:flex}
+.picker-box{background:var(--bg1);border:1px solid var(--border2);border-radius:14px;padding:20px;width:340px;max-height:90vh;overflow-y:auto}
+.picker-title{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--acc1);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:600}
+.picker-ranks{display:grid;grid-template-columns:repeat(13,1fr);gap:3px;margin-bottom:10px}
+.pr-btn{padding:7px 2px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;cursor:pointer;text-align:center;transition:all 0.1s}
+.pr-btn:hover{background:var(--bg3);color:var(--t1)}
+.pr-btn.sel{background:rgba(79,142,247,0.2);border-color:var(--acc1);color:var(--acc1)}
+.picker-suits{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.ps-btn{padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:20px;cursor:pointer;text-align:center;transition:all 0.1s}
+.ps-btn:hover{background:var(--bg3)}
+.ps-btn.sel{background:rgba(79,142,247,0.15);border-color:var(--acc1)}
+.picker-actions{display:flex;gap:8px;justify-content:flex-end}
+.card-remove{position:absolute;top:2px;right:3px;font-size:9px;color:var(--t3);cursor:pointer;line-height:1;padding:1px 2px;border-radius:2px}
+.card-remove:hover{color:var(--red)}
+</style>
+</head>
+<body>
+
+<div class="app" id="APP">
+
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">P</div>
+      <div>
+        <h1>Poker Range Analyzer</h1>
+        <p>GTO · Equity · Flop / Turn / River</p>
+      </div>
+    </div>
+    <div class="filters">
+      <select id="numPlayers" onchange="onPlayersChange()">
+        <option value="2">2 jogadores</option>
+        <option value="3">3 jogadores</option>
+        <option value="4">4 jogadores</option>
+        <option value="5">5 jogadores</option>
+        <option value="6" selected>6 jogadores</option>
+        <option value="7">7 jogadores</option>
+        <option value="8">8 jogadores</option>
+        <option value="9">9 jogadores</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="pos-tabs" id="posTabs"></div>
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="main-grid">
+    <div>
+      <div class="panel">
+        <div class="panel-label" id="rangeLabel">Range — BTN · clique em uma mão para detalhes</div>
+        <div class="range-grid" id="rangeGrid"></div>
+        <div class="legend">
+          <div class="leg-item"><div class="leg-dot" style="background:#4f8ef7"></div>RFI / Open</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#a78bfa"></div>3-bet</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#34d399"></div>Call</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#f59e0b"></div>Limp</div>
+          <div class="leg-item"><div class="leg-dot" style="background:#1e2a3a"></div>Fold</div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="panel">
+          <div class="panel-label">Simulador de Board</div>
+          <div class="street-nav">
+            <div class="street-btn active" id="sBtn-flop" onclick="setStreet('flop')">Flop</div>
+            <div class="street-btn" id="sBtn-turn" onclick="setStreet('turn')">Turn</div>
+            <div class="street-btn" id="sBtn-river" onclick="setStreet('river')">River</div>
+          </div>
+          <div id="boardUI"></div>
+          <div id="boardAnalysis"></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="hand-detail" id="handDetail">
+        <div class="placeholder">
+          <span class="icon">&#9824;</span>
+          Clique em uma mão no range para ver análise detalhada
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="picker-overlay" id="pickerOverlay" onclick="closePicker(event)">
+  <div class="picker-box" onclick="event.stopPropagation()">
+    <div class="picker-title">Selecionar carta</div>
+    <div class="picker-ranks" id="pickerRanks"></div>
+    <div class="picker-suits" id="pickerSuits"></div>
+    <div class="picker-actions">
+      <button class="btn-sm" onclick="closePicker()">Cancelar</button>
+      <button class="btn-sm primary" onclick="confirmPicker()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const RANKS=['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+const SUITS=['♠','♥','♦','♣'];
+
+const POS_BY_N={
+  2:['SB','BB'],3:['BTN','SB','BB'],4:['UTG','BTN','SB','BB'],
+  5:['UTG','CO','BTN','SB','BB'],6:['UTG','HJ','CO','BTN','SB','BB'],
+  7:['UTG','MP','HJ','CO','BTN','SB','BB'],
+  8:['UTG','UTG+1','MP','HJ','CO','BTN','SB','BB'],
+  9:['UTG','UTG+1','MP','MP+1','HJ','CO','BTN','SB','BB']
+};
+
+const RANGES={
+  BTN:{rfi:['AA','KK','QQ','JJ','TT','99','88','77','66','55','44','33','22','AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A4s','A3s','A2s','KQs','KJs','KTs','K9s','K8s','K7s','QJs','QTs','Q9s','JTs','J9s','T9s','T8s','98s','97s','87s','86s','76s','75s','65s','64s','54s','53s','43s','AKo','AQo','AJo','ATo','A9o','KQo','KJo','KTo','QJo','QTo','JTo'],tbet:['AA','KK','QQ','JJ','TT','AKs','AQs','AKo'],call:['99','88','77','66','55','44','33','22','AJs','ATs','A9s','A8s','A7s','A6s','A5s','KQs','KJs','QJs','JTs','T9s','98s','87s','76s','65s','54s','AQo','AJo']},
+  CO:{rfi:['AA','KK','QQ','JJ','TT','99','88','77','66','55','44','33','AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A4s','A3s','A2s','KQs','KJs','KTs','K9s','QJs','QTs','Q9s','JTs','J9s','T9s','T8s','98s','97s','87s','76s','65s','54s','AKo','AQo','AJo','ATo','A9o','KQo','KJo','KTo','QJo'],tbet:['AA','KK','QQ','JJ','TT','AKs','AQs','AKo'],call:['99','88','77','66','55','44','33','AJs','ATs','A9s','A8s','KQs','KJs','QJs','JTs','T9s','98s','87s','76s','65s','AQo']},
+  HJ:{rfi:['AA','KK','QQ','JJ','TT','99','88','77','66','55','44','AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A4s','A3s','KQs','KJs','KTs','K9s','QJs','QTs','JTs','J9s','T9s','T8s','98s','87s','76s','65s','AKo','AQo','AJo','ATo','KQo','KJo','QJo'],tbet:['AA','KK','QQ','JJ','AKs','AQs','AKo'],call:['TT','99','88','77','66','AJs','ATs','A9s','KQs','KJs','QJs','JTs','T9s','98s','AQo']},
+  MP:{rfi:['AA','KK','QQ','JJ','TT','99','88','77','66','AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','KQs','KJs','KTs','QJs','QTs','JTs','T9s','98s','AKo','AQo','AJo','ATo','KQo','KJo'],tbet:['AA','KK','QQ','JJ','AKs','AKo'],call:['TT','99','88','77','AJs','ATs','KQs','KJs','QJs','JTs','T9s','AQo']},
+  'MP+1':{rfi:['AA','KK','QQ','JJ','TT','99','88','77','66','55','AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A4s','KQs','KJs','KTs','QJs','QTs','JTs','J9s','T9s','98s','87s','AKo','AQo','AJo','ATo','KQo','KJo','QJo'],tbet:['AA','KK','QQ','JJ','AKs','AKo'],call:['TT','99','88','77','66','AJs','ATs','KQs','KJs','QJs','JTs','T9s','AQo']},
+  'UTG+1':{rfi:['AA','KK','QQ','JJ','TT','99','88','77','AKs','AQs','AJs','ATs','A9s','A8s','A7s','KQs','KJs','KTs','QJs','QTs','JTs','T9s','AKo','AQo','AJo','ATo','KQo','KJo'],tbet:['AA','KK','QQ','JJ','AKs','AKo'],call:['TT','99','88','AJs','ATs','KQs','KJs','QJs','JTs','AQo']},
+  UTG:{rfi:['AA','KK','QQ','JJ','TT','99','88','AKs','AQs','AJs','ATs','A9s','A8s','KQs','KJs','KTs','QJs','QTs','JTs','AKo','AQo','AJo','ATo','KQo'],tbet:['AA','KK','QQ','JJ','AKs','AKo'],call:['TT','99','AJs','ATs','KQs','QJs','JTs','AQo']},
+  SB:{rfi:['AA','KK','QQ','JJ','TT','99','88','77','66','55','44','33','22','AKs','AQs','AJs','ATs','A9s','A8s','A7s','A6s','A5s','A4s','A3s','A2s','KQs','KJs','KTs','K9s','K8s','QJs','QTs','Q9s','Q8s','JTs','J9s','T9s','T8s','98s','97s','87s','86s','76s','65s','54s','AKo','AQo','AJo','ATo','A9o','KQo','KJo','KTo','QJo'],tbet:['AA','KK','QQ','JJ','TT','AKs','AQs','AKo','AQo'],call:['99','88','77','66','55','44','33','22','AJs','ATs','A9s','A8s','A7s','KQs','KJs','QJs','JTs','T9s','98s','87s','76s','65s','AJo'],limp:['22','33','44','55','66','A2s','A3s','A4s','86s','97s','K8s','Q8s','Q9s','J9s','T8s']},
+  BB:{rfi:[],tbet:['AA','KK','QQ','JJ','TT','AKs','AQs','AJs','ATs','AKo','AQo'],call:['99','88','77','66','55','44','33','22','A9s','A8s','A7s','A6s','A5s','A4s','A3s','A2s','KQs','KJs','KTs','K9s','K8s','QJs','QTs','Q9s','JTs','J9s','T9s','T8s','98s','97s','87s','76s','65s','54s','AJo','ATo','A9o','KQo','KJo','QJo']}
+};
+
+const POS_INFO={
+  UTG:{vpip:'12-14%',pfr:'11-13%',desc:'Posição mais early. Range muito tight. Só mãos premium.',color:'#ef4444'},
+  'UTG+1':{vpip:'13-15%',pfr:'12-14%',desc:'Ainda muito early. Levemente mais amplo que UTG.',color:'#f59e0b'},
+  MP:{vpip:'15-18%',pfr:'14-17%',desc:'Middle position. Inclui broadway e pockets médios.',color:'#f59e0b'},
+  'MP+1':{vpip:'16-20%',pfr:'15-19%',desc:'Transição para late. Amplia suited aces.',color:'#f59e0b'},
+  HJ:{vpip:'18-22%',pfr:'17-21%',desc:'Hijack. Bom para steal. Aumenta suited connectors.',color:'#34d399'},
+  CO:{vpip:'22-26%',pfr:'21-25%',desc:'Cutoff. Steal agressivo contra BTN/SB/BB.',color:'#34d399'},
+  BTN:{vpip:'40-50%',pfr:'38-46%',desc:'Melhor posição. Maximize steal. Jogue hands marginais.',color:'#4f8ef7'},
+  SB:{vpip:'30-38%',pfr:'25-32%',desc:'Complexo. Mix raise/limp. Sempre joga OOP pós-flop.',color:'#a78bfa'},
+  BB:{vpip:'40-55%',pfr:'12-16%',desc:'Defend wide vs steal. 3-bet premium, call amplo.',color:'#a78bfa'}
+};
+
+let curPos='BTN', numPlayers=6, selHand=null, curStreet='flop';
+let board={flop:[null,null,null],turn:[null],river:[null]};
+let pickerSlot=null, pickerStreet=null, pickerRank=null, pickerSuit=null;
+
+function getPositions(){return POS_BY_N[numPlayers]||POS_BY_N[6]}
+function getRange(pos){return RANGES[pos]||RANGES['UTG']||{rfi:[],tbet:[],call:[],limp:[]}}
+function combosFor(h){return h.endsWith('s')?4:h.endsWith('o')?12:6}
+
+function buildMatrix(){
+  const m=[];
+  for(let i=0;i<13;i++){const r=[];for(let j=0;j<13;j++){if(i===j)r.push(RANKS[i]+RANKS[j]);else if(j>i)r.push(RANKS[i]+RANKS[j]+'s');else r.push(RANKS[j]+RANKS[i]+'o');}m.push(r);}
+  return m;
+}
+const MAT=buildMatrix();
+
+function onPlayersChange(){
+  numPlayers=parseInt(document.getElementById('numPlayers').value);
+  const pos=getPositions();
+  if(!pos.includes(curPos))curPos=pos[Math.max(0,pos.length-3)];
+  render();
+}
+
+function render(){renderPosTabs();renderStats();renderRange();renderBoard();if(selHand)renderHandDetail();}
+
+function renderPosTabs(){
+  document.getElementById('posTabs').innerHTML=getPositions().map(p=>`<div class="pos-tab ${p===curPos?'active':''}" onclick="selectPos('${p}')">${p}</div>`).join('');
+}
+
+function selectPos(p){curPos=p;selHand=null;render();}
+
+function renderStats(){
+  const r=getRange(curPos);
+  const rfi=(r.rfi||[]).length,tb=(r.tbet||[]).length;
+  const combos=(r.rfi||[]).reduce((a,h)=>a+combosFor(h),0);
+  const pct=Math.round(combos/1326*1000)/10;
+  const pi=POS_INFO[curPos]||POS_INFO.BTN;
+  document.getElementById('statsRow').innerHTML=`
+    <div class="scard"><div class="scard-val" style="color:${pi.color}">${rfi}</div><div class="scard-lbl">Mãos RFI</div></div>
+    <div class="scard"><div class="scard-val" style="color:#a78bfa">${tb}</div><div class="scard-lbl">3-bet puro</div></div>
+    <div class="scard"><div class="scard-val" style="color:#34d399">${combos}</div><div class="scard-lbl">Combos</div></div>
+    <div class="scard"><div class="scard-val" style="color:#f59e0b">${pct}%</div><div class="scard-lbl">% do range</div></div>
+  `;
+}
+
+function renderRange(){
+  const r=getRange(curPos);
+  const rS=new Set(r.rfi||[]),tS=new Set(r.tbet||[]),cS=new Set(r.call||[]),lS=new Set(r.limp||[]);
+  document.getElementById('rangeLabel').textContent=`Range — ${curPos} · clique em uma mão para detalhes`;
+  const grid=document.getElementById('rangeGrid');
+  grid.innerHTML='';
+  for(let i=0;i<13;i++){
+    for(let j=0;j<13;j++){
+      const h=MAT[i][j];
+      let cls='';
+      if(tS.has(h))cls='tbet';
+      else if(rS.has(h))cls='rfi';
+      else if(cS.has(h))cls='call';
+      else if(lS.has(h))cls='limp';
+      const lbl=h.length>2?h.slice(0,3):h;
+      const c=document.createElement('div');
+      c.className=`hc ${cls}${h===selHand?' selected':''}`;
+      c.title=h;
+      c.textContent=lbl.replace(/[so]$/,'');
+      if(cls)c.onclick=()=>clickHand(h);
+      grid.appendChild(c);
+    }
+  }
+}
+
+function clickHand(h){selHand=h;renderRange();renderHandDetail();}
+
+function getEquity(h){
+  const known={
+    'AA':{e2:85,e3:73,e4:64,e5:57},'KK':{e2:82,e3:69,e4:60,e5:53},
+    'QQ':{e2:79,e3:65,e4:56,e5:49},'JJ':{e2:77,e3:62,e4:53,e5:47},
+    'TT':{e2:75,e3:59,e4:50,e5:44},'AKs':{e2:67,e3:56,e4:49,e5:43},
+    'AQs':{e2:66,e3:55,e4:47,e5:41},'AKo':{e2:65,e3:54,e4:46,e5:41},
+    'AQo':{e2:64,e3:53,e4:45,e5:40},'KQs':{e2:63,e3:52,e4:44,e5:39},
+    '99':{e2:72,e3:57,e4:47,e5:41},'88':{e2:69,e3:54,e4:45,e5:39},
+    '77':{e2:66,e3:51,e4:42,e5:37},'66':{e2:63,e3:48,e4:40,e5:35},
+  };
+  if(known[h])return known[h];
+  const r1=RANKS.indexOf(h[0]),r2=RANKS.indexOf(h.length>2?h[1]:h[1]);
+  const suited=h.endsWith('s');
+  const strength=(!h.endsWith('s')&&!h.endsWith('o'))?(13-Math.min(r1,r2))/13:(((13-r1)+(13-r2))/26)+(suited?0.05:0);
+  const e2=Math.min(85,Math.round(35+strength*32));
+  return{e2,e3:Math.min(74,Math.round(e2*0.83)),e4:Math.min(64,Math.round(e2*0.72)),e5:Math.min(57,Math.round(e2*0.63))};
+}
+
+function renderHandDetail(){
+  if(!selHand){document.getElementById('handDetail').innerHTML='<div class="placeholder"><span class="icon">&#9824;</span>Clique em uma mão no range para ver análise detalhada</div>';return;}
+  const h=selHand;
+  const r=getRange(curPos);
+  const inRfi=(r.rfi||[]).includes(h),inTbet=(r.tbet||[]).includes(h),inCall=(r.call||[]).includes(h),inLimp=(r.limp||[]).includes(h);
+  let action='Fold',cls='ab-fold';
+  if(inTbet){action='3-bet';cls='ab-3bet';}
+  else if(inRfi){action='Raise/RFI';cls='ab-raise';}
+  else if(inCall){action='Call';cls='ab-call';}
+  else if(inLimp){action='Limp';cls='ab-raise';}
+  const typeLabel=h.endsWith('s')?'Suited':h.endsWith('o')?'Offsuit':'Pocket Pair';
+  const eq=getEquity(h);
+  const pi=POS_INFO[curPos]||POS_INFO.BTN;
+  document.getElementById('handDetail').innerHTML=`
+    <div class="hd-header">
+      <div><div class="hand-name">${h}</div><div class="hand-type">${typeLabel} · ${combosFor(h)} combos</div></div>
+      <div class="action-badge ${cls}">${action}</div>
+    </div>
+    <div class="hd-body">
+      <div class="panel-label">Equity estimada</div>
+      <div class="eq-row">
+        ${[['vs 1',eq.e2,'#4f8ef7'],['vs 2',eq.e3,'#34d399'],['vs 3',eq.e4,'#f59e0b'],['vs 4',eq.e5,'#f472b6']].map(([l,v,c])=>`
+          <div class="eq-card">
+            <div class="eq-lbl">${l} oponente${l==='vs 1'?'':'s'}</div>
+            <div class="eq-val" style="color:${c}">${v}%</div>
+            <div class="eq-bar"><div class="eq-fill" style="width:${v}%;background:${c}"></div></div>
+          </div>`).join('')}
+      </div>
+      <div class="panel-label" style="margin-bottom:8px">Sugestão por cenário</div>
+      <div class="scenario-tabs" id="scTabs">
+        <div class="sc-tab active" onclick="setScenario('rfi',this)">RFI</div>
+        <div class="sc-tab" onclick="setScenario('vs3b',this)">vs 3-bet</div>
+        <div class="sc-tab" onclick="setScenario('multi',this)">Multiway</div>
+        <div class="sc-tab" onclick="setScenario('squeeze',this)">Squeeze</div>
+      </div>
+      <div id="scenarioContent">${buildScenario('rfi',h,r)}</div>
+      <div style="margin-top:12px;padding:10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Nota de posição — ${curPos}</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.6">VPIP: <strong style="color:var(--t1)">${pi.vpip}</strong> &nbsp;·&nbsp; PFR: <strong style="color:var(--t1)">${pi.pfr}</strong><br>${pi.desc}</div>
+      </div>
+    </div>
+  `;
+}
+
+function buildScenario(sc,h,r){
+  const inRfi=(r.rfi||[]).includes(h),inTbet=(r.tbet||[]).includes(h),inCall=(r.call||[]).includes(h);
+  const data={
+    rfi:{actions:[{name:'Open raise',freq:inRfi||inTbet?100:0,color:'#4f8ef7'},{name:'Limp',freq:(r.limp||[]).includes(h)?40:0,color:'#f59e0b'},{name:'Fold',freq:inRfi||inTbet?0:100,color:'#ef4444'}],note:'Sem ação anterior. Decisão de open raise.'},
+    vs3b:{actions:[{name:'4-bet bluff/value',freq:inTbet?70:0,color:'#a78bfa'},{name:'Call 3-bet',freq:inCall?55:inRfi?30:0,color:'#34d399'},{name:'Fold',freq:inTbet?30:inRfi?70:100,color:'#ef4444'}],note:'Após 3-bet do oponente. Ajuste ao sizing.'},
+    multi:{actions:[{name:'C-bet seco',freq:inTbet?70:inRfi?45:20,color:'#4f8ef7'},{name:'Check/call',freq:inCall?50:inRfi?35:15,color:'#34d399'},{name:'Check/fold',freq:inTbet?10:inRfi?30:65,color:'#ef4444'}],note:'vs 2+ callers no flop. Reduz frequência de bluff.'},
+    squeeze:{actions:[{name:'Squeeze 3-bet',freq:inTbet?80:inRfi?20:0,color:'#a78bfa'},{name:'Cold call',freq:inCall?50:0,color:'#34d399'},{name:'Fold',freq:inTbet?20:inRfi?50:100,color:'#ef4444'}],note:'Há open + call antes de você agir.'}
+  };
+  const d=data[sc];
+  return`<div class="scenario-panel">${d.actions.map(a=>`<div class="sc-action"><div class="sc-action-name">${a.name}</div><div class="freq-bar-wrap"><div class="freq-bar" style="width:${a.freq}%;background:${a.color}"></div></div><div class="sc-freq" style="color:${a.color}">${a.freq}%</div></div>`).join('')}<div style="margin-top:8px;font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace">${d.note}</div></div>`;
+}
+
+function setScenario(sc,el){
+  document.querySelectorAll('#scTabs .sc-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const r=getRange(curPos);
+  document.getElementById('scenarioContent').innerHTML=buildScenario(sc,selHand,r);
+}
+
+function setStreet(s){
+  curStreet=s;
+  ['flop','turn','river'].forEach((st,idx)=>{
+    const btn=document.getElementById('sBtn-'+st);
+    btn.classList.remove('active','done');
+    const cur=['flop','turn','river'].indexOf(s);
+    if(idx<cur)btn.classList.add('done');
+    else if(idx===cur)btn.classList.add('active');
+  });
+  renderBoard();
+}
+
+function renderBoard(){
+  const el=document.getElementById('boardUI');
+  const streets=['flop','turn','river'];
+  let html='';
+  streets.forEach(st=>{
+    const cards=st==='flop'?board.flop:st==='turn'?board.turn:board.river;
+    const isDim=st!==curStreet;
+    html+=`<div class="board-row" style="opacity:${isDim?0.4:1};transition:opacity 0.2s">
+      <div class="board-label">${st==='flop'?'Flop':st==='turn'?'Turn':'River'}</div>
+      ${cards.map((c,i)=>{
+        const isRed=c&&(c.suit==='♥'||c.suit==='♦');
+        return`<div class="card-btn ${c?'has-card':''}" onclick="openPicker('${st}',${i})">
+          ${c?`<div class="card-face ${isRed?'red':'black'}"><div class="card-rank">${c.rank}</div><div class="card-suit">${c.suit}</div></div><div class="card-remove" onclick="removeCard(event,'${st}',${i})">✕</div>`:'<div class="card-plus">+</div>'}
+        </div>`;
+      }).join('')}
+    </div>`;
+  });
+  html+=`<div class="board-actions">
+    <button class="btn-sm primary" onclick="randomAll()">Board aleatório</button>
+    <button class="btn-sm" onclick="randomStreet()">Randomizar street</button>
+    <button class="btn-sm danger" onclick="clearAll()">Limpar</button>
+  </div>`;
+  el.innerHTML=html;
+  renderBoardAnalysis();
+}
+
+function removeCard(e,street,idx){
+  e.stopPropagation();
+  if(street==='flop')board.flop[idx]=null;
+  else if(street==='turn')board.turn[0]=null;
+  else board.river[0]=null;
+  renderBoard();
+}
+
+function renderBoardAnalysis(){
+  const el=document.getElementById('boardAnalysis');
+  const allCards=[...board.flop,...board.turn,...board.river].filter(Boolean);
+  if(allCards.length<3){el.innerHTML='';return;}
+  const r=getRange(curPos);
+  const allHands=[...new Set([...(r.rfi||[]),...(r.call||[]),...(r.tbet||[])])];
+  const boardR=allCards.map(c=>RANKS.indexOf(c.rank));
+  const boardS=allCards.map(c=>c.suit);
+  let flush=0,str8=0,toak=0,twop=0,pair=0,nothing=0,tot=0;
+  allHands.forEach(h=>{
+    const cb=combosFor(h);tot+=cb;
+    const t=analyzeConnect(h,boardR,boardS);
+    if(t==='flush')flush+=cb;else if(t==='str')str8+=cb;else if(t==='toak')toak+=cb;else if(t==='two')twop+=cb;else if(t==='pair')pair+=cb;else nothing+=cb;
+  });
+  const p=v=>tot>0?Math.round(v/tot*1000)/10:0;
+  const streetLabel=allCards.length===3?'Flop':allCards.length===4?'Turn':'River';
+  const bars=[
+    {name:'Flush / FD',val:flush,color:'#4f8ef7'},{name:'Straight / SD',val:str8,color:'#a78bfa'},
+    {name:'Trinca',val:toak,color:'#34d399'},{name:'Dois pares',val:twop,color:'#f59e0b'},
+    {name:'Par',val:pair,color:'#f472b6'},{name:'Air / Overcards',val:nothing,color:'#4a5568'}
+  ];
+  el.innerHTML=`<div class="board-analysis">
+    <div class="panel-label">Análise do board — ${curPos} · ${streetLabel}</div>
+    <div class="ba-grid">
+      <div class="ba-card"><div class="ba-val" style="color:#4f8ef7">${tot}</div><div class="ba-lbl">Combos</div></div>
+      <div class="ba-card"><div class="ba-val" style="color:#a78bfa">${p(flush+str8)}%</div><div class="ba-lbl">Draws</div></div>
+      <div class="ba-card"><div class="ba-val" style="color:#34d399">${p(pair+twop+toak)}%</div><div class="ba-lbl">Conectou</div></div>
+    </div>
+    ${bars.map(b=>`<div class="ba-row"><div class="ba-name">${b.name}</div><div class="ba-barwrap"><div class="ba-bar" style="width:${p(b.val)}%;background:${b.color}"></div></div><div class="ba-pct" style="color:${b.color}">${p(b.val)}%</div></div>`).join('')}
+    ${selHand?`<div style="margin-top:10px;padding:8px;background:var(--bg3);border-radius:6px;border:1px solid var(--border)"><div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--acc1);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Textura vs ${selHand}</div><div style="font-size:12px;color:var(--t2);line-height:1.6">${boardTexture(selHand,allCards)}</div></div>`:''}
+  </div>`;
+}
+
+function boardTexture(h,cards){
+  if(!cards.length)return'—';
+  const bR=cards.map(c=>RANKS.indexOf(c.rank));
+  const bS=cards.map(c=>c.suit);
+  const r1=RANKS.indexOf(h[0]),r2=h.length>2?RANKS.indexOf(h[1]):RANKS.indexOf(h[0]);
+  const suited=h.endsWith('s');
+  const hits=bR.includes(r1)||bR.includes(r2);
+  const flushDraw=suited&&bS.filter(s=>s===bS[0]).length>=2;
+  const paired=bR.length>1&&(bR[0]===bR[1]||(bR.length>2&&(bR[1]===bR[2]||bR[0]===bR[2])));
+  const parts=[];
+  if(hits)parts.push('Conecta com o board.');
+  if(flushDraw)parts.push('Flush draw disponivel.');
+  if(paired)parts.push('Board pareado — cuidado com full house.');
+  if(!hits&&!flushDraw)parts.push('Não conecta — considere check/fold.');
+  if(Math.abs(r1-r2)<=3&&!h.endsWith('o')&&r1!==r2)parts.push('Possivel gutshot/OESD.');
+  return parts.join(' ')||'Textura neutra.';
+}
+
+function analyzeConnect(h,bR,bS){
+  const r1=RANKS.indexOf(h[0]),r2=h.length>2?RANKS.indexOf(h[1]):RANKS.indexOf(h[0]);
+  const suited=h.endsWith('s');
+  const all=[...bR,r1,r2];
+  const cnt={};all.forEach(r=>cnt[r]=(cnt[r]||0)+1);
+  const vals=Object.values(cnt);
+  if(vals.includes(3))return'toak';
+  const pairs=vals.filter(v=>v>=2).length;
+  const bPaired=bR.length>1&&(bR[0]===bR[1]||(bR.length>2&&(bR[1]===bR[2]||bR[0]===bR[2])));
+  if(pairs>=2)return'two';
+  if(pairs===1&&!bPaired)return'pair';
+  if(pairs===1&&bPaired&&(bR.includes(r1)||bR.includes(r2)))return'pair';
+  if(suited){const sc={};bS.forEach(s=>sc[s]=(sc[s]||0)+1);if(Object.values(sc).some(v=>v>=2))return'flush';}
+  const uniq=[...new Set([...bR,r1,r2])].sort((a,b)=>a-b);
+  if(uniq.length>=4){for(let i=0;i<=uniq.length-4;i++){if(uniq[i+3]-uniq[i]<=4)return'str';}}
+  return'nothing';
+}
+
+function getAllUsed(){return[...board.flop,...board.turn,...board.river].filter(Boolean).map(c=>c.rank+c.suit);}
+
+function openPicker(street,idx){
+  pickerStreet=street;pickerSlot=idx;pickerRank=null;pickerSuit=null;
+  const cur=street==='flop'?board.flop[idx]:street==='turn'?board.turn[0]:board.river[0];
+  document.getElementById('pickerRanks').innerHTML=RANKS.map(r=>`<div class="pr-btn" onclick="selRank('${r}')">${r}</div>`).join('');
+  document.getElementById('pickerSuits').innerHTML=SUITS.map(s=>{const col=s==='♥'||s==='♦'?'#ef4444':'var(--t1)';return`<div class="ps-btn" onclick="selSuit('${s}')" style="color:${col}">${s}</div>`;}).join('');
+  document.getElementById('pickerOverlay').classList.add('open');
+}
+
+function selRank(r){pickerRank=r;document.querySelectorAll('.pr-btn').forEach(b=>b.classList.toggle('sel',b.textContent===r));}
+function selSuit(s){pickerSuit=s;document.querySelectorAll('.ps-btn').forEach(b=>b.classList.toggle('sel',b.textContent===s));}
+
+function confirmPicker(){
+  if(!pickerRank||!pickerSuit)return;
+  const key=pickerRank+pickerSuit;
+  const cur=pickerStreet==='flop'?board.flop[pickerSlot]:pickerStreet==='turn'?board.turn[0]:board.river[0];
+  const used=getAllUsed().filter(k=>!cur||k!==cur.rank+cur.suit);
+  if(used.includes(key)){alert('Carta já está no board!');return;}
+  if(pickerStreet==='flop')board.flop[pickerSlot]={rank:pickerRank,suit:pickerSuit};
+  else if(pickerStreet==='turn')board.turn[0]={rank:pickerRank,suit:pickerSuit};
+  else board.river[0]={rank:pickerRank,suit:pickerSuit};
+  closePicker();renderBoard();
+}
+
+function closePicker(e){
+  if(e&&e.target!==document.getElementById('pickerOverlay'))return;
+  document.getElementById('pickerOverlay').classList.remove('open');
+}
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+
+function randomAll(){
+  const deck=[];RANKS.forEach(r=>SUITS.forEach(s=>deck.push({rank:r,suit:s})));
+  shuffle(deck);
+  board.flop=[deck[0],deck[1],deck[2]];board.turn=[deck[3]];board.river=[deck[4]];
+  renderBoard();
+}
+
+function randomStreet(){
+  const deck=[];RANKS.forEach(r=>SUITS.forEach(s=>deck.push({rank:r,suit:s})));
+  shuffle(deck);
+  const used=getAllUsed();
+  const avail=deck.filter(c=>!used.includes(c.rank+c.suit));
+  if(curStreet==='flop')board.flop=[avail[0]||null,avail[1]||null,avail[2]||null];
+  else if(curStreet==='turn')board.turn=[avail[0]||null];
+  else board.river=[avail[0]||null];
+  renderBoard();
+}
+
+function clearAll(){board={flop:[null,null,null],turn:[null],river:[null]};renderBoard();}
+
+render();
+</script>
+</body>
+</html>
