@@ -47,6 +47,7 @@ select:hover{border-color:var(--border2)}
 .hc.tbet{background:#1a0d3a;color:#a78bfa;border-color:#2d1a5a}
 .hc.call{background:#0d2a1a;color:#34d399;border-color:#1a4a2a}
 .hc.limp{background:#2a1a0d;color:#f59e0b;border-color:#4a2d1a}
+.hc.fold{background:var(--fold);color:var(--t3);border-color:#1a2535}
 .hc.selected{box-shadow:0 0 0 2px #fff;transform:scale(1.15);z-index:6}
 .legend{display:flex;gap:12px;margin-top:10px;flex-wrap:wrap}
 .leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)}
@@ -60,6 +61,7 @@ select:hover{border-color:var(--border2)}
 .ab-call{background:rgba(52,211,153,0.2);color:var(--acc2);border:1px solid rgba(52,211,153,0.4)}
 .ab-fold{background:rgba(74,85,104,0.2);color:var(--t3);border:1px solid var(--border)}
 .ab-3bet{background:rgba(167,139,250,0.2);color:var(--acc5);border:1px solid rgba(167,139,250,0.4)}
+.ab-limp{background:rgba(245,158,11,0.2);color:var(--acc3);border:1px solid rgba(245,158,11,0.4)}
 .hd-body{padding:14px}
 .eq-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px}
 .eq-card{background:var(--bg2);border-radius:8px;padding:10px;border:1px solid var(--border)}
@@ -78,6 +80,8 @@ select:hover{border-color:var(--border2)}
 .sc-freq{font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;min-width:36px;text-align:right}
 .freq-bar-wrap{flex:1;margin:0 10px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
 .freq-bar{height:100%;border-radius:2px;transition:width 0.4s ease}
+.out-of-range-banner{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:12px;color:#f87171;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:8px}
+.out-of-range-banner span{font-size:15px}
 .board-section{margin-top:14px}
 .board-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .board-label{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:1px;min-width:36px}
@@ -127,12 +131,18 @@ select:hover{border-color:var(--border2)}
 .picker-actions{display:flex;gap:8px;justify-content:flex-end}
 .card-remove{position:absolute;top:2px;right:3px;font-size:9px;color:var(--t3);cursor:pointer;line-height:1;padding:1px 2px;border-radius:2px}
 .card-remove:hover{color:var(--red)}
+.hand-strength-bar{margin:12px 0}
+.hsb-label{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:flex;justify-content:space-between}
+.hsb-track{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.hsb-fill{height:100%;border-radius:4px;transition:width 0.5s ease}
+.stats-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.sm-card{background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:8px;text-align:center}
+.sm-val{font-size:14px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.sm-lbl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:0.6px;margin-top:2px;font-family:'JetBrains Mono',monospace}
 </style>
 </head>
 <body>
-
 <div class="app" id="APP">
-
   <div class="topbar">
     <div class="logo">
       <div class="logo-icon">P</div>
@@ -154,14 +164,12 @@ select:hover{border-color:var(--border2)}
       </select>
     </div>
   </div>
-
   <div class="pos-tabs" id="posTabs"></div>
   <div class="stats-row" id="statsRow"></div>
-
   <div class="main-grid">
     <div>
       <div class="panel">
-        <div class="panel-label" id="rangeLabel">Range — BTN · clique em uma mão para detalhes</div>
+        <div class="panel-label" id="rangeLabel">Range — BTN · clique em qualquer mão para detalhes</div>
         <div class="range-grid" id="rangeGrid"></div>
         <div class="legend">
           <div class="leg-item"><div class="leg-dot" style="background:#4f8ef7"></div>RFI / Open</div>
@@ -171,7 +179,6 @@ select:hover{border-color:var(--border2)}
           <div class="leg-item"><div class="leg-dot" style="background:#1e2a3a"></div>Fold</div>
         </div>
       </div>
-
       <div style="margin-top:14px">
         <div class="panel">
           <div class="panel-label">Simulador de Board</div>
@@ -185,12 +192,11 @@ select:hover{border-color:var(--border2)}
         </div>
       </div>
     </div>
-
     <div>
       <div class="hand-detail" id="handDetail">
         <div class="placeholder">
           <span class="icon">&#9824;</span>
-          Clique em uma mão no range para ver análise detalhada
+          Clique em qualquer mão — dentro ou fora do range — para ver análise completa
         </div>
       </div>
     </div>
@@ -245,6 +251,54 @@ const POS_INFO={
   BB:{vpip:'40-55%',pfr:'12-16%',desc:'Defend wide vs steal. 3-bet premium, call amplo.',color:'#a78bfa'}
 };
 
+// Hand strength database — raw equity vs random hand
+const HAND_EQ={
+  'AA':85,'KK':82,'QQ':79,'JJ':77,'TT':75,'99':72,'88':69,'77':66,'66':63,'55':60,'44':57,'33':54,'22':51,
+  'AKs':67,'AQs':66,'AJs':65,'ATs':64,'A9s':62,'A8s':61,'A7s':60,'A6s':59,'A5s':60,'A4s':59,'A3s':58,'A2s':57,
+  'AKo':65,'AQo':64,'AJo':63,'ATo':62,'A9o':60,'A8o':59,'A7o':58,'A6o':57,'A5o':57,'A4o':56,'A3o':55,'A2o':54,
+  'KQs':63,'KJs':62,'KTs':61,'K9s':59,'K8s':57,'K7s':56,'K6s':55,'K5s':54,'K4s':53,'K3s':52,'K2s':51,
+  'KQo':61,'KJo':60,'KTo':59,'K9o':57,'K8o':55,'K7o':54,'K6o':53,'K5o':52,'K4o':51,'K3o':50,'K2o':49,
+  'QJs':60,'QTs':59,'Q9s':57,'Q8s':55,'Q7s':54,'Q6s':53,'Q5s':52,'Q4s':51,'Q3s':50,'Q2s':49,
+  'QJo':58,'QTo':57,'Q9o':55,'Q8o':53,'Q7o':52,'Q6o':51,'Q5o':50,'Q4o':49,'Q3o':48,'Q2o':47,
+  'JTs':57,'J9s':55,'J8s':53,'J7s':52,'J6s':50,'J5s':49,'J4s':48,'J3s':47,'J2s':46,
+  'JTo':55,'J9o':53,'J8o':51,'J7o':50,'J6o':48,'J5o':47,'J4o':46,'J3o':45,'J2o':44,
+  'T9s':54,'T8s':52,'T7s':50,'T6s':49,'T5s':47,'T4s':46,'T3s':45,'T2s':44,
+  'T9o':52,'T8o':50,'T7o':48,'T6o':47,'T5o':45,'T4o':44,'T3o':43,'T2o':42,
+  '98s':51,'97s':49,'96s':47,'95s':46,'94s':44,'93s':43,'92s':42,
+  '98o':49,'97o':47,'96o':45,'95o':44,'94o':42,'93o':41,'92o':40,
+  '87s':49,'86s':47,'85s':45,'84s':43,'83s':42,'82s':41,
+  '87o':47,'86o':45,'85o':43,'84o':41,'83o':40,'82o':39,
+  '76s':47,'75s':45,'74s':43,'73s':41,'72s':40,
+  '76o':45,'75o':43,'74o':41,'73o':39,'72o':38,
+  '65s':45,'64s':43,'63s':41,'62s':39,
+  '65o':43,'64o':41,'63o':39,'62o':37,
+  '54s':43,'53s':41,'52s':39,
+  '54o':41,'53o':39,'52o':37,
+  '43s':41,'42s':39,
+  '43o':39,'42o':37,
+  '32s':38,'32o':36
+};
+
+function getEquity(h){
+  const base=HAND_EQ[h];
+  if(base) return base;
+  const r1=RANKS.indexOf(h[0]),r2=RANKS.indexOf(h.length>2?h[1]:h[0]);
+  const suited=h.endsWith('s');
+  const str=(((13-r1)+(13-r2))/26)+(suited?0.04:0);
+  return Math.min(84,Math.round(33+str*30));
+}
+
+function getEquityVsN(h, n) {
+  const e1 = getEquity(h);
+  const scale = [1, 0.83, 0.72, 0.63, 0.56, 0.51, 0.47, 0.44];
+  return Math.round(e1 * (scale[n-1] || 0.44));
+}
+
+function handStrength(h) {
+  const eq = getEquity(h);
+  return Math.round((eq - 36) / (85 - 36) * 100);
+}
+
 let curPos='BTN', numPlayers=6, selHand=null, curStreet='flop';
 let board={flop:[null,null,null],turn:[null],river:[null]};
 let pickerSlot=null, pickerStreet=null, pickerRank=null, pickerSuit=null;
@@ -292,13 +346,13 @@ function renderStats(){
 function renderRange(){
   const r=getRange(curPos);
   const rS=new Set(r.rfi||[]),tS=new Set(r.tbet||[]),cS=new Set(r.call||[]),lS=new Set(r.limp||[]);
-  document.getElementById('rangeLabel').textContent=`Range — ${curPos} · clique em uma mão para detalhes`;
+  document.getElementById('rangeLabel').textContent=`Range — ${curPos} · clique em qualquer mão para detalhes`;
   const grid=document.getElementById('rangeGrid');
   grid.innerHTML='';
   for(let i=0;i<13;i++){
     for(let j=0;j<13;j++){
       const h=MAT[i][j];
-      let cls='';
+      let cls='fold';
       if(tS.has(h))cls='tbet';
       else if(rS.has(h))cls='rfi';
       else if(cS.has(h))cls='call';
@@ -308,7 +362,7 @@ function renderRange(){
       c.className=`hc ${cls}${h===selHand?' selected':''}`;
       c.title=h;
       c.textContent=lbl.replace(/[so]$/,'');
-      if(cls)c.onclick=()=>clickHand(h);
+      c.onclick=()=>clickHand(h);
       grid.appendChild(c);
     }
   }
@@ -316,52 +370,66 @@ function renderRange(){
 
 function clickHand(h){selHand=h;renderRange();renderHandDetail();}
 
-function getEquity(h){
-  const known={
-    'AA':{e2:85,e3:73,e4:64,e5:57},'KK':{e2:82,e3:69,e4:60,e5:53},
-    'QQ':{e2:79,e3:65,e4:56,e5:49},'JJ':{e2:77,e3:62,e4:53,e5:47},
-    'TT':{e2:75,e3:59,e4:50,e5:44},'AKs':{e2:67,e3:56,e4:49,e5:43},
-    'AQs':{e2:66,e3:55,e4:47,e5:41},'AKo':{e2:65,e3:54,e4:46,e5:41},
-    'AQo':{e2:64,e3:53,e4:45,e5:40},'KQs':{e2:63,e3:52,e4:44,e5:39},
-    '99':{e2:72,e3:57,e4:47,e5:41},'88':{e2:69,e3:54,e4:45,e5:39},
-    '77':{e2:66,e3:51,e4:42,e5:37},'66':{e2:63,e3:48,e4:40,e5:35},
-  };
-  if(known[h])return known[h];
-  const r1=RANKS.indexOf(h[0]),r2=RANKS.indexOf(h.length>2?h[1]:h[1]);
-  const suited=h.endsWith('s');
-  const strength=(!h.endsWith('s')&&!h.endsWith('o'))?(13-Math.min(r1,r2))/13:(((13-r1)+(13-r2))/26)+(suited?0.05:0);
-  const e2=Math.min(85,Math.round(35+strength*32));
-  return{e2,e3:Math.min(74,Math.round(e2*0.83)),e4:Math.min(64,Math.round(e2*0.72)),e5:Math.min(57,Math.round(e2*0.63))};
-}
-
 function renderHandDetail(){
-  if(!selHand){document.getElementById('handDetail').innerHTML='<div class="placeholder"><span class="icon">&#9824;</span>Clique em uma mão no range para ver análise detalhada</div>';return;}
+  if(!selHand){
+    document.getElementById('handDetail').innerHTML='<div class="placeholder"><span class="icon">&#9824;</span>Clique em qualquer mão — dentro ou fora do range — para ver análise completa</div>';
+    return;
+  }
   const h=selHand;
   const r=getRange(curPos);
   const inRfi=(r.rfi||[]).includes(h),inTbet=(r.tbet||[]).includes(h),inCall=(r.call||[]).includes(h),inLimp=(r.limp||[]).includes(h);
+  const inRange=inRfi||inTbet||inCall||inLimp;
+
   let action='Fold',cls='ab-fold';
   if(inTbet){action='3-bet';cls='ab-3bet';}
-  else if(inRfi){action='Raise/RFI';cls='ab-raise';}
+  else if(inRfi){action='RFI / Open';cls='ab-raise';}
   else if(inCall){action='Call';cls='ab-call';}
-  else if(inLimp){action='Limp';cls='ab-raise';}
+  else if(inLimp){action='Limp';cls='ab-limp';}
+
   const typeLabel=h.endsWith('s')?'Suited':h.endsWith('o')?'Offsuit':'Pocket Pair';
-  const eq=getEquity(h);
+  const eq1=getEquity(h);
+  const strength=handStrength(h);
+
+  let strengthLabel='Muito fraca', strengthColor='#ef4444';
+  if(strength>=80){strengthLabel='Premium';strengthColor='#4f8ef7';}
+  else if(strength>=65){strengthLabel='Muito forte';strengthColor='#34d399';}
+  else if(strength>=50){strengthLabel='Forte';strengthColor='#34d399';}
+  else if(strength>=35){strengthLabel='Média';strengthColor='#f59e0b';}
+  else if(strength>=20){strengthLabel='Fraca';strengthColor='#f59e0b';}
+
   const pi=POS_INFO[curPos]||POS_INFO.BTN;
+
   document.getElementById('handDetail').innerHTML=`
     <div class="hd-header">
       <div><div class="hand-name">${h}</div><div class="hand-type">${typeLabel} · ${combosFor(h)} combos</div></div>
       <div class="action-badge ${cls}">${action}</div>
     </div>
     <div class="hd-body">
-      <div class="panel-label">Equity estimada</div>
+      ${!inRange?`<div class="out-of-range-banner"><span>&#9888;</span>Fora do range GTO de ${curPos}. Análise de força disponível mesmo assim.</div>`:''}
+
+      <div class="hand-strength-bar">
+        <div class="hsb-label"><span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:1px">Força da mão</span><span style="color:${strengthColor};font-weight:600;font-size:11px">${strengthLabel}</span></div>
+        <div class="hsb-track"><div class="hsb-fill" style="width:${strength}%;background:${strengthColor}"></div></div>
+      </div>
+
+      <div class="stats-mini">
+        <div class="sm-card"><div class="sm-val" style="color:#4f8ef7">${eq1}%</div><div class="sm-lbl">Eq. bruta</div></div>
+        <div class="sm-card"><div class="sm-val" style="color:#34d399">${combosFor(h)}</div><div class="sm-lbl">Combos</div></div>
+        <div class="sm-card"><div class="sm-val" style="color:#f59e0b">${strength}</div><div class="sm-lbl">Score</div></div>
+      </div>
+
+      <div class="panel-label">Equity vs número de oponentes</div>
       <div class="eq-row">
-        ${[['vs 1',eq.e2,'#4f8ef7'],['vs 2',eq.e3,'#34d399'],['vs 3',eq.e4,'#f59e0b'],['vs 4',eq.e5,'#f472b6']].map(([l,v,c])=>`
-          <div class="eq-card">
-            <div class="eq-lbl">${l} oponente${l==='vs 1'?'':'s'}</div>
+        ${[[1,'#4f8ef7'],[2,'#34d399'],[3,'#f59e0b'],[4,'#f472b6']].map(([n,c])=>{
+          const v=getEquityVsN(h,n);
+          return`<div class="eq-card">
+            <div class="eq-lbl">vs ${n} opon${n>1?'entes':'ente'}</div>
             <div class="eq-val" style="color:${c}">${v}%</div>
             <div class="eq-bar"><div class="eq-fill" style="width:${v}%;background:${c}"></div></div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>
+
       <div class="panel-label" style="margin-bottom:8px">Sugestão por cenário</div>
       <div class="scenario-tabs" id="scTabs">
         <div class="sc-tab active" onclick="setScenario('rfi',this)">RFI</div>
@@ -370,6 +438,7 @@ function renderHandDetail(){
         <div class="sc-tab" onclick="setScenario('squeeze',this)">Squeeze</div>
       </div>
       <div id="scenarioContent">${buildScenario('rfi',h,r)}</div>
+
       <div style="margin-top:12px;padding:10px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
         <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">Nota de posição — ${curPos}</div>
         <div style="font-size:12px;color:var(--t2);line-height:1.6">VPIP: <strong style="color:var(--t1)">${pi.vpip}</strong> &nbsp;·&nbsp; PFR: <strong style="color:var(--t1)">${pi.pfr}</strong><br>${pi.desc}</div>
@@ -380,21 +449,53 @@ function renderHandDetail(){
 
 function buildScenario(sc,h,r){
   const inRfi=(r.rfi||[]).includes(h),inTbet=(r.tbet||[]).includes(h),inCall=(r.call||[]).includes(h);
+  const eq=getEquity(h);
+  const isPremium=eq>=77, isStrong=eq>=63, isMedium=eq>=52;
+
   const data={
-    rfi:{actions:[{name:'Open raise',freq:inRfi||inTbet?100:0,color:'#4f8ef7'},{name:'Limp',freq:(r.limp||[]).includes(h)?40:0,color:'#f59e0b'},{name:'Fold',freq:inRfi||inTbet?0:100,color:'#ef4444'}],note:'Sem ação anterior. Decisão de open raise.'},
-    vs3b:{actions:[{name:'4-bet bluff/value',freq:inTbet?70:0,color:'#a78bfa'},{name:'Call 3-bet',freq:inCall?55:inRfi?30:0,color:'#34d399'},{name:'Fold',freq:inTbet?30:inRfi?70:100,color:'#ef4444'}],note:'Após 3-bet do oponente. Ajuste ao sizing.'},
-    multi:{actions:[{name:'C-bet seco',freq:inTbet?70:inRfi?45:20,color:'#4f8ef7'},{name:'Check/call',freq:inCall?50:inRfi?35:15,color:'#34d399'},{name:'Check/fold',freq:inTbet?10:inRfi?30:65,color:'#ef4444'}],note:'vs 2+ callers no flop. Reduz frequência de bluff.'},
-    squeeze:{actions:[{name:'Squeeze 3-bet',freq:inTbet?80:inRfi?20:0,color:'#a78bfa'},{name:'Cold call',freq:inCall?50:0,color:'#34d399'},{name:'Fold',freq:inTbet?20:inRfi?50:100,color:'#ef4444'}],note:'Há open + call antes de você agir.'}
+    rfi:{
+      actions:[
+        {name:'Open raise',freq:inTbet?100:inRfi?100:isStrong?30:isMedium?10:0,color:'#4f8ef7'},
+        {name:'Limp',freq:(r.limp||[]).includes(h)?40:(!inRfi&&!inTbet&&isMedium)?20:0,color:'#f59e0b'},
+        {name:'Fold',freq:inRfi||inTbet?0:isStrong?70:isMedium?80:100,color:'#ef4444'}
+      ],
+      note: inRfi||inTbet?'Mão dentro do range de abertura GTO.':'Mão fora do range GTO. '+( isStrong?'Pode ser jogada em posição tardia.':'Geralmente fold nessa posição.')
+    },
+    vs3b:{
+      actions:[
+        {name:'4-bet value/bluff',freq:inTbet?70:isPremium?50:isStrong?15:0,color:'#a78bfa'},
+        {name:'Call 3-bet',freq:inCall?55:inRfi?30:isStrong?30:isMedium?15:0,color:'#34d399'},
+        {name:'Fold',freq:inTbet?30:inRfi?70:isStrong?55:isMedium?85:100,color:'#ef4444'}
+      ],
+      note:'Após 3-bet do oponente. Ajuste ao sizing e posição.'
+    },
+    multi:{
+      actions:[
+        {name:'C-bet valor',freq:inTbet?60:inRfi?35:isPremium?40:isStrong?20:5,color:'#4f8ef7'},
+        {name:'Check/call',freq:inCall?50:inRfi?30:isMedium?25:10,color:'#34d399'},
+        {name:'Check/fold',freq:inTbet?10:inRfi?35:isMedium?50:85,color:'#ef4444'}
+      ],
+      note:'vs 2+ callers. Reduza bluffs, aposte só com valor claro.'
+    },
+    squeeze:{
+      actions:[
+        {name:'Squeeze 3-bet',freq:inTbet?85:isPremium?60:isStrong?20:0,color:'#a78bfa'},
+        {name:'Cold call',freq:inCall?45:isStrong?25:isMedium?10:0,color:'#34d399'},
+        {name:'Fold',freq:inTbet?15:isPremium?40:isStrong?55:isMedium?90:100,color:'#ef4444'}
+      ],
+      note:'Há open + call antes de você. Squeeze maior que 3-bet normal.'
+    }
   };
   const d=data[sc];
-  return`<div class="scenario-panel">${d.actions.map(a=>`<div class="sc-action"><div class="sc-action-name">${a.name}</div><div class="freq-bar-wrap"><div class="freq-bar" style="width:${a.freq}%;background:${a.color}"></div></div><div class="sc-freq" style="color:${a.color}">${a.freq}%</div></div>`).join('')}<div style="margin-top:8px;font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace">${d.note}</div></div>`;
+  const total=d.actions.reduce((a,x)=>a+x.freq,0);
+  const norm=total>0?d.actions.map(a=>({...a,freq:Math.round(a.freq/total*100)})):d.actions;
+  return`<div class="scenario-panel">${norm.map(a=>`<div class="sc-action"><div class="sc-action-name">${a.name}</div><div class="freq-bar-wrap"><div class="freq-bar" style="width:${a.freq}%;background:${a.color}"></div></div><div class="sc-freq" style="color:${a.color}">${a.freq}%</div></div>`).join('')}<div style="margin-top:8px;font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace">${d.note}</div></div>`;
 }
 
 function setScenario(sc,el){
   document.querySelectorAll('#scTabs .sc-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  const r=getRange(curPos);
-  document.getElementById('scenarioContent').innerHTML=buildScenario(sc,selHand,r);
+  document.getElementById('scenarioContent').innerHTML=buildScenario(sc,selHand,getRange(curPos));
 }
 
 function setStreet(s){
@@ -411,9 +512,8 @@ function setStreet(s){
 
 function renderBoard(){
   const el=document.getElementById('boardUI');
-  const streets=['flop','turn','river'];
   let html='';
-  streets.forEach(st=>{
+  ['flop','turn','river'].forEach(st=>{
     const cards=st==='flop'?board.flop:st==='turn'?board.turn:board.river;
     const isDim=st!==curStreet;
     html+=`<div class="board-row" style="opacity:${isDim?0.4:1};transition:opacity 0.2s">
@@ -489,7 +589,7 @@ function boardTexture(h,cards){
   if(hits)parts.push('Conecta com o board.');
   if(flushDraw)parts.push('Flush draw disponivel.');
   if(paired)parts.push('Board pareado — cuidado com full house.');
-  if(!hits&&!flushDraw)parts.push('Não conecta — considere check/fold.');
+  if(!hits&&!flushDraw)parts.push('Nao conecta — considere check/fold.');
   if(Math.abs(r1-r2)<=3&&!h.endsWith('o')&&r1!==r2)parts.push('Possivel gutshot/OESD.');
   return parts.join(' ')||'Textura neutra.';
 }
@@ -516,7 +616,6 @@ function getAllUsed(){return[...board.flop,...board.turn,...board.river].filter(
 
 function openPicker(street,idx){
   pickerStreet=street;pickerSlot=idx;pickerRank=null;pickerSuit=null;
-  const cur=street==='flop'?board.flop[idx]:street==='turn'?board.turn[0]:board.river[0];
   document.getElementById('pickerRanks').innerHTML=RANKS.map(r=>`<div class="pr-btn" onclick="selRank('${r}')">${r}</div>`).join('');
   document.getElementById('pickerSuits').innerHTML=SUITS.map(s=>{const col=s==='♥'||s==='♦'?'#ef4444':'var(--t1)';return`<div class="ps-btn" onclick="selSuit('${s}')" style="color:${col}">${s}</div>`;}).join('');
   document.getElementById('pickerOverlay').classList.add('open');
